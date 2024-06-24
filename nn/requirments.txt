@@ -1,0 +1,4 @@
+pandas
+yfiancne
+scikit-learn
+matplotlib
