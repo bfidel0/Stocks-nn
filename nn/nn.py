@@ -56,7 +56,12 @@ model.fit(training_set[predictors], training_set["Target"])
 #Evaluates the error in our predictions
 preds = model.predict(test_set[predictors])
 preds = pd.Series(preds, index=test_set.index)
-print(precision_score(test_set["Target"], preds))
+
+
+'''
+Printing error test is ~51% which meansd we are barely better than coin flip
+'''
+#print(precision_score(test_set["Target"], preds))
 
 
 def backtest(data, model, predictors, start=1000, step=750):
@@ -80,11 +85,9 @@ def backtest(data, model, predictors, start=1000, step=750):
     return pd.concat(predictons)
 
 
-predictions = backtest(data, model, predictors)
+#predictions = backtest(data, model, predictors)
 
-print(predictions["Predictions"].value_counts())
-
-print(precision_score(predictions["Target"], predictions["Predictions"]))
+#print(predictions["Predictions"].value_counts())
 
 
 
@@ -95,14 +98,27 @@ quarterly_mean = data.rolling(90).mean()
 annual_mean = data.rolling(365).mean()
 weekly_trend = data.shift(1).rolling(7).mean()["Target"]
 
-data["weekly_mean"] = weekly_mean["close"] / data["Close"]
-data["quaretly_mean"] = quarterly_mean["Close"] / data["Close"]
+data["weekly_mean"] = weekly_mean["Close"] / data["Close"]
+data["quarterly_mean"] = quarterly_mean["Close"] / data["Close"]
 data["annual_mean"] = annual_mean["Close"] / data["Close"]
 
 data["annual_weekly_mean"] = data["annual_mean"] / data["weekly_mean"]
-data["annual_quarterly_mean"] = data["annual_mean"] / data["quaretly_mean"]
+data["annual_quarterly_mean"] = data["annual_mean"] / data["quarterly_mean"]
 data["weekly_trend"] = weekly_trend
 
 data["open_close_ratio"] = data["Open"] / data["Close"]
 data["high_close_ratio"] = data["High"] / data["Close"]
 data["low_close_ratio"] = data["Low"] / data["Close"]
+
+full_predictors = predictors + ["weekly_mean", "quarterly_mean", "annual_mean", "annual_weekly_mean", "annual_quarterly_mean", "open_close_ratio", "high_close_ratio", "low_close_ratio", "weekly_trend"]
+
+
+predictions = backtest(data.iloc[365:], model, full_predictors)
+
+#print(predictions)
+
+#Shows accuracy of model
+print(precision_score(predictions["Target"], predictions["Predictions"]))
+
+#shows how many tardes we would make
+print(predictions["Predictions"].value_counts())
