@@ -4,6 +4,7 @@ import json
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import precision_score
+from sklearn.model_selection import GridSearchCV
 import numpy as np
 
 API_PATH = "msft_data.json"
@@ -19,18 +20,17 @@ else:
 
     msft_prices.to_json(API_PATH)
 
-#print(msft_prices.plot.line(y="Close", use_index=True))
-
+#print(msft_prices)
 #Determines the actual closing prices
 data = msft_prices[["Close"]]
 data = data.rename(columns= {"Close": "Actual_Close"})
 
 
-# sets our target price indicating if price went up or down
+'''
+indicates whether the price of the stock went up or down. We use the rolling method to view today
+vs the next day and that will return 1 if the price went up or 0 if the price went down.
+'''
 data["Target"] = msft_prices.rolling(2).apply(lambda x: x.iloc[1] > x.iloc[0])["Close"]
-
-
-#shift the stock price forward one day 
 msft_prev = msft_prices.copy()
 msft_prev = msft_prev.shift(1)
 
@@ -44,8 +44,32 @@ data = data.join(msft_prev[predictors]).iloc[1:]
 '''
 The machine learning model starts here
 '''
+'''
+params_to_test = {
+    'n_estimators': [100, 40, 50, 60, 75,],
+    'max_depth' : [3,5,6]
+}
+model = RandomForestClassifier(random_state=42)
+training_set = data.iloc[:-100]
+test_set = data.iloc[-100:]
+grid_search = GridSearchCV(model, param_grid=params_to_test, scoring='accuracy')
+
+grid_search.fit(training_set[predictors], training_set["Target"])
+
+best_params = grid_search.best_params_ 
+
+#best_params is a dict you can pass directly to train a model with optimal settings 
+best_model = grid_search.best_estimator_
+print(best_model)
+'''
 #The min sample split ensures we dont overfit the data
-model = RandomForestClassifier(n_estimators=100, min_samples_split=200, random_state=1)
+'''
+HERE
+'''
+model = RandomForestClassifier(n_estimators=300, min_samples_split=200, random_state=1)
+
+#training_set = data.iloc[:-100]
+#test_set = data.iloc[-100:]
 
 training_set = data.iloc[:-100]
 test_set = data.iloc[-100:]
@@ -53,7 +77,8 @@ test_set = data.iloc[-100:]
 model.fit(training_set[predictors], training_set["Target"])
 
 
-#Evaluates the error in our predictions
+#Evaluates the error in our predictions.
+#Turns the numbpy array from the predict method into a pandas series
 preds = model.predict(test_set[predictors])
 preds = pd.Series(preds, index=test_set.index)
 
@@ -63,8 +88,10 @@ Printing error test is ~51% which meansd we are barely better than coin flip
 '''
 #print(precision_score(test_set["Target"], preds))
 
-
-def backtest(data, model, predictors, start=1000, step=750):
+'''
+A Step size of 50 takes a long time but pushes us >60% precision score
+'''
+def backtest(data, model, predictors, start=2000, step=350):
     predictons = []
 
     for i in range(start, data.shape[0], step):
@@ -93,6 +120,7 @@ def backtest(data, model, predictors, start=1000, step=750):
 
 #Improving accuracy functions
 
+
 weekly_mean = data.rolling(7).mean()
 quarterly_mean = data.rolling(90).mean()
 annual_mean = data.rolling(365).mean()
@@ -109,6 +137,7 @@ data["weekly_trend"] = weekly_trend
 data["open_close_ratio"] = data["Open"] / data["Close"]
 data["high_close_ratio"] = data["High"] / data["Close"]
 data["low_close_ratio"] = data["Low"] / data["Close"]
+
 
 full_predictors = predictors + ["weekly_mean", "quarterly_mean", "annual_mean", "annual_weekly_mean", "annual_quarterly_mean", "open_close_ratio", "high_close_ratio", "low_close_ratio", "weekly_trend"]
 
