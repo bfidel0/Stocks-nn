@@ -20,8 +20,8 @@ else:
 
     msft_prices.to_json(API_PATH)
 
-#print(msft_prices)
-#Determines the actual closing prices
+
+#Determines the actual closing prices for future use
 data = msft_prices[["Close"]]
 data = data.rename(columns= {"Close": "Actual_Close"})
 
@@ -38,13 +38,14 @@ msft_prev = msft_prev.shift(1)
 predictors = ["Close", "Volume", "Open", 'High', "Low"]
 data = data.join(msft_prev[predictors]).iloc[1:]
 
-#print(data.head(5))
+'''
 
+This area is designated for GridsearchCV to determine the optimal parameters 
+for our model. 
 
 '''
-The machine learning model starts here
 '''
-'''
+
 params_to_test = {
     'n_estimators': [100, 40, 50, 60, 75,],
     'max_depth' : [3,5,6]
@@ -60,16 +61,14 @@ best_params = grid_search.best_params_
 
 #best_params is a dict you can pass directly to train a model with optimal settings 
 best_model = grid_search.best_estimator_
-print(best_model)
+
+
 '''
-#The min sample split ensures we dont overfit the data
+
 '''
-HERE
+The machine learning model starts here. We use a classfier since we are determining a binary decision
 '''
 model = RandomForestClassifier(n_estimators=300, min_samples_split=200, random_state=1)
-
-#training_set = data.iloc[:-100]
-#test_set = data.iloc[-100:]
 
 training_set = data.iloc[:-100]
 test_set = data.iloc[-100:]
@@ -89,9 +88,11 @@ Printing error test is ~51% which meansd we are barely better than coin flip
 #print(precision_score(test_set["Target"], preds))
 
 '''
+The backtest function is used to train the model every 50 rows as oppopssed to just training it once
+
 A Step size of 50 takes a long time but pushes us >60% precision score
 '''
-def backtest(data, model, predictors, start=2000, step=350):
+def backtest(data, model, predictors, start=2000, step=50):
     predictons = []
 
     for i in range(start, data.shape[0], step):
@@ -112,14 +113,13 @@ def backtest(data, model, predictors, start=2000, step=350):
     return pd.concat(predictons)
 
 
-#predictions = backtest(data, model, predictors)
 
-#print(predictions["Predictions"].value_counts())
+'''
+We can add more prediction methods to increase the accuracy of our model
+So we add rolling means to help predict upward or downward price movement aka volitility
+of future days
 
-
-
-#Improving accuracy functions
-
+'''
 
 weekly_mean = data.rolling(7).mean()
 quarterly_mean = data.rolling(90).mean()
@@ -139,15 +139,17 @@ data["high_close_ratio"] = data["High"] / data["Close"]
 data["low_close_ratio"] = data["Low"] / data["Close"]
 
 
+
+
 full_predictors = predictors + ["weekly_mean", "quarterly_mean", "annual_mean", "annual_weekly_mean", "annual_quarterly_mean", "open_close_ratio", "high_close_ratio", "low_close_ratio", "weekly_trend"]
 
 
 predictions = backtest(data.iloc[365:], model, full_predictors)
 
-#print(predictions)
-
 #Shows accuracy of model
 print(precision_score(predictions["Target"], predictions["Predictions"]))
 
-#shows how many tardes we would make
+
+#shows how many trades we would make
 print(predictions["Predictions"].value_counts())
+
